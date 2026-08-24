@@ -280,7 +280,6 @@ function startGame() {
   state = 'playing';
   setPhaseUI();
   requestAnimationFrame(fitCanvas);
-  $('exitBtn').classList.add('show');
   var b = $('btnGo');
   if (b) b.disabled = false;
   startGreenPhase(true);
@@ -294,29 +293,14 @@ function enterAppMode() {
     if (fn) { var r = fn.call(el); if (r && r.catch) r.catch(function(){}); }
   } catch (e) {}
 }
-function backToCard() {
+function backToStartOverlay() {
   state = 'card';
   stopAllLooping();
   resetRound();
-  $('exitBtn').classList.remove('show');
-  var b = $('btnGo');
-  if (b) b.disabled = true;
-  document.body.classList.remove('game-open');
-  try {
-    var fsEl = document.fullscreenElement || document.webkitFullscreenElement;
-    if (fsEl) {
-      var x = document.exitFullscreen || document.webkitExitFullscreen;
-      if (x) { var r = x.call(document); if (r && r.catch) r.catch(function(){}); }
-    }
-  } catch (e) {}
+  var startO = document.getElementById('startOverlay');
+  if (startO) startO.classList.remove('hidden');
 }
 function endGame() {
-  state = 'over';
-  moving = false; setMovingUI();
-  var b = $('btnGo');
-  if (b) b.disabled = true;
-  players.forEach(stopWalk);
-  if (chantName) { stopSnd(chantName); chantName = null; }
   linesOn = false;
   var n = players.filter(function(p){ return p.crossed; }).length;
   var t = $('endTitle'), m = $('endMsg');
@@ -579,12 +563,11 @@ function loop(t) {
 document.addEventListener('keydown', function(e) {
   if (e.code === 'Space' && !e.repeat && state === 'playing') { e.preventDefault(); unlockAudio(); pressGo(); }
 
-  else if (e.code === 'Escape' && state !== 'card') backToCard();
+  else if (e.code === 'Escape' && state === 'over') { backToStartOverlay(); }
 });
 document.addEventListener('keyup', function(e){ if (e.code === 'Space') releaseGo(); });
 document.addEventListener('visibilitychange', function(){ if (document.hidden) releaseGo(); });
 $('retryBtn').addEventListener('click', startGame);
-$('exitBtn').addEventListener('click', backToCard);
 var ICON_ON = '<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.2 8.6a4.8 4.8 0 010 6.8M18.6 6.2a8.2 8.2 0 010 11.6" fill="none" stroke-width="1.8" stroke-linecap="round"/></svg>';
 var ICON_OFF = '<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 9.5l5 5m0-5l-5 5" fill="none" stroke-width="1.8" stroke-linecap="round"/></svg>';
 $('soundBtn').addEventListener('click', function() {
