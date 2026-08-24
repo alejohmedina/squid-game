@@ -1,5 +1,5 @@
 'use strict';
-var GAME_VERSION = 24;
+var GAME_VERSION = 26;
 try {
   if (localStorage.getItem('sqVer') && parseInt(localStorage.getItem('sqVer'), 10) < GAME_VERSION) {
     localStorage.setItem('sqVer', String(GAME_VERSION));
@@ -14,7 +14,7 @@ var LINE_Y = 240, STAND_Y = 286, START_Y = 680;
 var DOLL_W = 242, DOLL_H = 230;
 var GUARD_W = 41, GX_L = 146, GX_R = 340, GY = 167;
 var PLAYER_W = 32;
-var RUN_MS = 16500;
+var RUN_MS = 19500;
 var A = 'assets/', AU = A + 'audio/', IM = A + 'images/';
 
 var SHEETS = {
@@ -160,7 +160,7 @@ var confetti = [], redAfter = 0;
 function rnd(a, b) { return a + Math.random() * (b - a); }
 
 function initPlayers() {
-  var base = [1.18, 1.1, 1.03, 0.97, 0.91, 0.85].sort(function(){ return Math.random() - .5; });
+  var base = [1.1, 1.02, 0.95, 0.9, 0.84, 0.78].sort(function(){ return Math.random() - .5; });
   players = [];
   for (var i = 0; i < 6; i++) {
     players.push({ idx: i, kind: (i % 2 === 0) ? 'p1' : 'p2', x: 0, p: 0,
@@ -216,7 +216,7 @@ function startChant() {
 }
 function startGreenPhase(first) {
   phase = 'green'; phaseT = 0;
-  phaseDur = first ? rnd(2600, 4200) : rnd(2400, 5200);
+  phaseDur = first ? rnd(2000, 3200) : rnd(1800, 3800);
   punished = false;
   dollState = 'turning-away';
   dollAnim = new Anim('yh-back', false);
@@ -233,7 +233,7 @@ function startRedPhase() {
   playSnd('younghee-turn-forward', false, .6);
   setPhaseUI();
 }
-function GRACE_MS() { return Math.ceil(13 / 24 * 1000) + 250; }
+function GRACE_MS() { return 400; }
 
 function startWalk(pl) {
   if (pl.walkSndOn) return;
@@ -301,6 +301,12 @@ function backToStartOverlay() {
   if (startO) startO.classList.remove('hidden');
 }
 function endGame() {
+  state = 'over';
+  moving = false; setMovingUI();
+  var b = $('btnGo');
+  if (b) b.disabled = true;
+  players.forEach(stopWalk);
+  if (chantName) { stopSnd(chantName); chantName = null; }
   linesOn = false;
   var n = players.filter(function(p){ return p.crossed; }).length;
   var t = $('endTitle'), m = $('endMsg');
@@ -320,7 +326,7 @@ function endGame() {
     spawnImgConfetti(90);
     playSnd('end-confetti', false, .8);
   }
-  setTimeout(function(){ $('endOverlay').classList.remove('hidden'); }, n === 6 ? 2600 : 900);
+  setTimeout(function(){ $('endOverlay').classList.remove('hidden'); }, n === 6 ? 4300 : 900);
 }
 
 function update(dt) {
@@ -341,7 +347,7 @@ function update(dt) {
     if (dollState === 'turning-away' && dollAnim.finished) {
       dollState = 'idleBack'; dollAnim = null; linesOn = true;
       startChant();
-      phaseDur = chantDur + 180;
+      phaseDur = chantDur + 120;
     } else if (dollState === 'turning-danger' && dollAnim.finished) {
       dollState = 'idleFront'; dollAnim = null;
     } else if (dollState === 'angry' && dollAnim.finished) {
@@ -493,10 +499,24 @@ function drawPlayer(pl, now) {
     drawFrame(key, frame, Math.round(-PLAYER_W / 2), -Math.round(PLAYER_W * 80 / 37), PLAYER_W);
   }
   ctx.restore();
-  if (!pl.alive && deadK >= 1) {
-    ctx.fillStyle = 'rgba(255,60,100,.95)';
-    ctx.font = 'bold 22px sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText('\u2715', pl.x, y - PLAYER_W * .95);
+  if (!pl.alive && deadK > 0) {
+    var th = (Math.PI / 2) * deadK;
+    var cx = pl.x + PLAYER_W * 1.08 * Math.sin(th);
+    var cy = y - PLAYER_W * 1.08 * Math.cos(th);
+    var r = PLAYER_W * .52;
+    ctx.save();
+    ctx.globalAlpha = deadK;
+    ctx.fillStyle = 'rgba(255,46,99,.22)';
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#ff2e63';
+    ctx.lineWidth = Math.max(3.5, PLAYER_W * .12);
+    ctx.lineCap = 'round';
+    var s = r * .45;
+    ctx.beginPath();
+    ctx.moveTo(cx - s, cy - s); ctx.lineTo(cx + s, cy + s);
+    ctx.moveTo(cx + s, cy - s); ctx.lineTo(cx - s, cy + s);
+    ctx.stroke();
+    ctx.restore();
   }
   if (pl.crossed) {
     ctx.fillStyle = '#2ecc8f';
