@@ -5,22 +5,31 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Squid Game &#183; Luz Verde, Luz Roja</title>
 <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
-<link rel="stylesheet" href="style.css?v=22">
+<link rel="stylesheet" href="style.css?v=24">
 </head>
 <body>
-
-
-
-<div id="cardScreen">
-  <div class="invitation" id="invitationCard" role="button" tabindex="0">
-    <img src="assets/images/invitation.gif" alt="Tarjeta de invitaci&#243;n al juego">
-  </div>
-</div>
 
 <div class="stage" id="stage">
   <canvas id="game"></canvas>
   <button id="soundBtn" class="corner-btn" title="Sonido"><svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.2 8.6a4.8 4.8 0 010 6.8M18.6 6.2a8.2 8.2 0 010 11.6" fill="none" stroke-width="1.8" stroke-linecap="round"/></svg></button>
   <button id="exitBtn" class="exit-btn" title="Salir del juego">&#10005;</button>
+
+  <div id="loadOverlay" class="overlay">
+    <div class="load-wrap">
+      <div class="load-bar"><div id="loadFill"></div></div>
+      <span id="loadPct">0%</span>
+      <div class="load-hint" id="loadHint">Cargando recursos...</div>
+    </div>
+  </div>
+
+  <div id="startOverlay" class="overlay hidden">
+    <div class="start-wrap">
+      <div class="invitation" id="startCard" role="button" tabindex="0">
+        <img src="assets/images/invitation.gif" alt="Tarjeta de invitación al juego">
+      </div>
+      <div class="start-hint">Toca para jugar</div>
+    </div>
+  </div>
 
   <div id="endOverlay" class="overlay hidden">
     <div class="end-box">
@@ -35,8 +44,6 @@
   <div class="hud">
   </div>
 </div>
-
-
 
 <script src="game.js?v=24"></script>
 </body>

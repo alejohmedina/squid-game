@@ -43,13 +43,18 @@ var SOUNDS = ['player-1-walking','player-2-walking','player-3-walking','player-4
   'player-crosses','end-confetti','end-lose','end-pig'];
 
 var imgs = {}, snds = {};
-var assetsReady = false, wantStart = false;
+var assetsReady = false;
 
 function loadAssets(done) {
   var total = Object.keys(SHEETS).length + SOUNDS.length + CONFETTI_FILES.length;
   var loaded = 0;
   function tickOne() {
     loaded++;
+    var pct = Math.round(loaded / total * 100);
+    var fill = document.getElementById('loadFill');
+    var pctEl = document.getElementById('loadPct');
+    if (fill) fill.style.width = pct + '%';
+    if (pctEl) pctEl.textContent = pct + '%';
     if (loaded >= total) { assetsReady = true; if (done) done(); }
   }
   Object.keys(SHEETS).forEach(function(k) {
@@ -74,8 +79,20 @@ function loadAssets(done) {
 }
 
 var muted = false;
+var audioUnlocked = false;
+function unlockAudio() {
+  if (audioUnlocked) return;
+  Object.values(snds).forEach(function(a) {
+    var p = a.play();
+    if (p && p.catch) p.catch(function(){});
+    a.pause();
+    a.currentTime = 0;
+  });
+  audioUnlocked = true;
+}
 function playSnd(name, loop, vol) {
   if (muted || !snds[name]) return null;
+  if (!audioUnlocked) return null; // silenciar hasta desbloquear
   var base = snds[name];
   try { base.pause(); } catch (e) {}
   base.loop = !!loop;
@@ -258,11 +275,10 @@ function resetRound() {
 }
 function startGame() {
   if (state === 'playing') return;
-  if (!assetsReady) { wantStart = true; return; }
+  if (!assetsReady) return;
   resetRound();
   state = 'playing';
   setPhaseUI();
-  document.body.classList.add('game-open');
   requestAnimationFrame(fitCanvas);
   $('exitBtn').classList.add('show');
   var b = $('btnGo');
@@ -277,10 +293,6 @@ function enterAppMode() {
     var fn = el.requestFullscreen || el.webkitRequestFullscreen;
     if (fn) { var r = fn.call(el); if (r && r.catch) r.catch(function(){}); }
   } catch (e) {}
-}
-function enterFromCard() {
-  startGame();
-  enterAppMode();
 }
 function backToCard() {
   state = 'card';
@@ -565,22 +577,18 @@ function loop(t) {
 }
 
 document.addEventListener('keydown', function(e) {
-  if (e.code === 'Space' && !e.repeat && state === 'playing') { e.preventDefault(); pressGo(); }
+  if (e.code === 'Space' && !e.repeat && state === 'playing') { e.preventDefault(); unlockAudio(); pressGo(); }
 
   else if (e.code === 'Escape' && state !== 'card') backToCard();
 });
 document.addEventListener('keyup', function(e){ if (e.code === 'Space') releaseGo(); });
 document.addEventListener('visibilitychange', function(){ if (document.hidden) releaseGo(); });
-$('invitationCard').addEventListener('click', function(){ if (state === 'card') enterFromCard(); });
-$('invitationCard').addEventListener('keydown', function(e) {
-  if (state !== 'card') return;
-  if (e.code === 'Enter' || e.code === 'Space') { e.preventDefault(); enterFromCard(); }
-});
 $('retryBtn').addEventListener('click', startGame);
 $('exitBtn').addEventListener('click', backToCard);
 var ICON_ON = '<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.2 8.6a4.8 4.8 0 010 6.8M18.6 6.2a8.2 8.2 0 010 11.6" fill="none" stroke-width="1.8" stroke-linecap="round"/></svg>';
 var ICON_OFF = '<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 9.5l5 5m0-5l-5 5" fill="none" stroke-width="1.8" stroke-linecap="round"/></svg>';
 $('soundBtn').addEventListener('click', function() {
+  unlockAudio();
   muted = !muted;
   this.innerHTML = muted ? ICON_OFF : ICON_ON;
   this.title = muted ? 'Activar sonido' : 'Silenciar';
@@ -591,8 +599,28 @@ initPlayers();
 fitCanvas();
 setPhaseUI();
 updateHud();
-loadAssets(function(){ if (wantStart) { wantStart = false; startGame(); } });
+loadAssets(function(){
+  var loadO = document.getElementById('loadOverlay');
+  var startO = document.getElementById('startOverlay');
+  if (loadO) loadO.classList.add('hidden');
+  if (startO) startO.classList.remove('hidden');
+});
 requestAnimationFrame(function(t) { lastT = t; requestAnimationFrame(loop); });
+
+// Start card handlers
+var startCard = document.getElementById('startCard');
+if (startCard) {
+  function startFromCard() {
+    var startO = document.getElementById('startOverlay');
+    if (startO) startO.classList.add('hidden');
+    unlockAudio();
+    startGame();
+  }
+  startCard.addEventListener('click', startFromCard);
+  startCard.addEventListener('keydown', function(e) {
+    if (e.code === 'Enter' || e.code === 'Space') { e.preventDefault(); startFromCard(); }
+  });
+}
 
 setInterval(function() {
   if (location.hash.indexOf('debug') === -1) return;
@@ -620,6 +648,7 @@ setInterval(function() {
 // --- MOBILE TAP-TO-ADVANCE ---
 cv.addEventListener('pointerdown', function(e) {
   e.preventDefault();
+  unlockAudio();
   pressGo();
 });
 cv.addEventListener('pointerup', releaseGo);
