@@ -66,7 +66,48 @@ canvas#game { width: 100%; height: auto; display: block; }
 
 .controls { position: absolute; left: 0; right: 0; bottom: 14px; display: flex; justify-content: center; z-index: 6; pointer-events: none; }
 .controls .pad { pointer-events: auto; }
-.hud { position: absolute; top: 10px; left: 0; right: 0; max-width: 560px; margin: 0 auto; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; z-index: 6; }
+.hudbar { width: 100%; max-width: 560px; background: linear-gradient(180deg, #181325, #100c18); border: 1px solid #2a2a44; border-radius: 14px; padding: 9px 12px 0; margin-bottom: 10px; box-shadow: 0 12px 32px rgba(0,0,0,.45); overflow: hidden; }
+.hud-meta { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 10px; font-weight: 800; letter-spacing: 1.8px; color: #8a8aa0; margin-bottom: 8px; }
+.hud-meta .dot { opacity: .5; }
+#streakTag { color: #ff9f43; }
+#lvlTag { color: #6f9dff; }
+#ptsTag { color: #ffd740; }
+.end-score { color: #ffd740; font-size: 14px; font-weight: 700; letter-spacing: .4px; margin: -12px 0 16px; }
+.end-box { max-height: 94%; overflow-y: auto; }
+.board-wrap { margin: 0 0 18px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,215,64,.32); border-radius: 12px; padding: 12px 14px; text-align: left; }
+.board-wrap.hidden { display: none; }
+.board-title { text-align: center; font-weight: 800; letter-spacing: 2px; color: #ffd740; font-size: 12px; margin-bottom: 8px; }
+#boardList { list-style: none; display: flex; flex-direction: column; gap: 6px; margin: 0 0 10px; padding: 0; }
+#boardList li { display: flex; justify-content: space-between; background: rgba(0,0,0,.32); padding: 7px 10px; border-radius: 8px; font-size: 13px; font-weight: 700; color: #e8dcc8; }
+.name-row { display: flex; gap: 8px; }
+.name-row.hidden { display: none; }
+#nameInput { flex: 1; min-width: 0; padding: 10px 12px; border-radius: 9px; border: 1px solid #334155; background: #0f172a; color: #fff; font: inherit; font-size: 14px; text-transform: uppercase; }
+#nameInput:focus { outline: none; border-color: #ffd740; }
+.btn-gold { background: linear-gradient(90deg, #ffd740, #c8930a); color: #241a02; padding: 10px 18px; }
+.hud { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.hud-item { display: flex; align-items: center; gap: 9px; background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.1); border-radius: 12px; padding: 7px 10px; min-width: 0; }
+.timebar { height: 4px; background: rgba(255,255,255,.09); margin: 10px -12px 0; }
+#timeFill { height: 100%; width: 100%; background: linear-gradient(90deg, #3ef0a2, #ffd740); transition: width .25s linear; }
+.timebar.urgent #timeFill { background: linear-gradient(90deg, #ff5c5c, #ff2e63); }
+.hud-icon { width: 28px; height: 28px; border-radius: 9px; display: flex; align-items: center; justify-content: center; flex: none; }
+.hud-icon svg { width: 16px; height: 16px; fill: currentColor; }
+.hud-alive .hud-icon { background: rgba(62,240,162,.16); color: #3ef0a2; }
+.hud-crossed .hud-icon { background: rgba(255,215,64,.15); color: #ffd740; }
+.hud-time .hud-icon { background: rgba(232,220,200,.13); color: #e8dcc8; }
+.hud-text { display: flex; flex-direction: column; line-height: 1.1; }
+.hud-text small { font-size: 9px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; color: #8a8aa0; }
+.hud-text strong { font-size: 16px; font-weight: 800; color: #fff; font-variant-numeric: tabular-nums; }
+.hud-time.warning { border-color: rgba(255,92,92,.65); animation: pulseWarning 1s ease-in-out infinite; }
+.hud-time.warning .hud-icon { background: rgba(255,92,92,.18); color: #ff5c5c; }
+.hud-time.warning strong { color: #ff5c5c; }
+@keyframes pulseWarning { 0%,100% { opacity: 1; } 50% { opacity: .65; } }
+@media (max-width: 420px) {
+  .hudbar { padding: 8px 8px 0; }
+  .hud { gap: 6px; }
+  .hud-item { padding: 5px 7px; gap: 7px; }
+  .hud-text strong { font-size: 14px; }
+  .timebar { margin: 8px -8px 0; }
+}
 #endOverlay { z-index: 8; background: rgba(10,8,18,.45); backdrop-filter: none; }
 
 .pad { width: 96px; height: 96px; border-radius: 22px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; cursor: pointer; user-select: none; -webkit-user-select: none; touch-action: manipulation; background: #16141f; transition: transform .08s, filter .2s, opacity .3s; }

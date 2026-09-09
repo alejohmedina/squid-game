@@ -5,9 +5,28 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Squid Game &#183; Luz Verde, Luz Roja</title>
 <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
-<link rel="stylesheet" href="style.css?v=26">
+<link rel="stylesheet" href="style.css?v=29">
 </head>
 <body>
+
+<div class="hudbar">
+  <div class="hud-meta"><span id="lvlTag">NIVEL 1</span><span class="dot">·</span><span id="streakTag">RACHA 0</span><span class="dot">·</span><span id="ptsTag">PUNTOS 0</span></div>
+  <div class="hud">
+    <div class="hud-item hud-alive">
+      <span class="hud-icon"><svg viewBox="0 0 24 24"><path d="M12 12a4.5 4.5 0 1 0-4.5-4.5A4.5 4.5 0 0 0 12 12zm0 2.2c-3 0-9 1.5-9 4.5V20a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-1.3c0-3-6-4.5-9-4.5z"/></svg></span>
+      <span class="hud-text"><small>Vivos</small><strong id="aliveCount">6</strong></span>
+    </div>
+    <div class="hud-item hud-crossed">
+      <span class="hud-icon"><svg viewBox="0 0 24 24"><path d="M5 3a1 1 0 0 0-1 1v16a1 1 0 0 0 2 0v-6.2h11.6a.5.5 0 0 0 .4-.8L14.7 8.6 18 5.2a.5.5 0 0 0-.4-.8H5z"/></svg></span>
+      <span class="hud-text"><small>Meta</small><strong id="crossedCount">0</strong></span>
+    </div>
+    <div class="hud-item hud-time" id="timePill">
+      <span class="hud-icon"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm4.2 14.2a1 1 0 0 1-1.4 0L11 12.4V7a1 1 0 0 1 2 0v4.6l3.2 3.2a1 1 0 0 1 0 1.4z"/></svg></span>
+      <span class="hud-text"><small>Tiempo</small><strong id="timeLeft">1:00</strong></span>
+    </div>
+  </div>
+  <div class="timebar" id="timebar"><div id="timeFill"></div></div>
+</div>
 
 <div class="stage" id="stage">
   <canvas id="game"></canvas>
@@ -34,16 +53,23 @@
     <div class="end-box">
       <div id="endTitle" class="end-title"></div>
       <p id="endMsg" class="end-msg"></p>
+      <p id="endScore" class="end-score"></p>
+      <div id="boardWrap" class="board-wrap hidden">
+        <div class="board-title">RANKING · TOP 5</div>
+        <ol id="boardList"></ol>
+        <div id="nameRow" class="name-row hidden">
+          <input id="nameInput" maxlength="10" placeholder="Tu nombre" autocomplete="off">
+          <button id="saveScoreBtn" class="btn btn-gold">Guardar</button>
+        </div>
+      </div>
       <div class="btn-row">
         <button id="retryBtn" class="btn btn-primary">Jugar de nuevo</button>
       </div>
     </div>
   </div>
 
-  <div class="hud">
-  </div>
 </div>
 
-<script src="game.js?v=26"></script>
+<script src="game.js?v=29"></script>
 </body>
 </html>
