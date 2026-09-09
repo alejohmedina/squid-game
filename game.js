@@ -1,5 +1,5 @@
 'use strict';
-var GAME_VERSION = 35;
+var GAME_VERSION = 36;
 try {
   if (localStorage.getItem('sqVer') && parseInt(localStorage.getItem('sqVer'), 10) < GAME_VERSION) {
     localStorage.setItem('sqVer', String(GAME_VERSION));
@@ -675,11 +675,14 @@ function drawPlayer(pl, now) {
 function layoutScene(vw, vh) {
   VW = Math.round(vw); DW = Math.round(VW / 2);
   H = vh || Math.round(VW * ASPECT);
-  LINE_Y = Math.round(H * .34);
-  STAND_Y = LINE_Y + 46;
-  START_Y = H - 90;
   DOLL_W = Math.round(VW * .32);
   DOLL_H = Math.round(DOLL_W * 240 / 252);
+  LINE_Y = Math.round(H * .34);
+  // La cabeza de la muneca nunca puede tocar el HUD (~90px): margen minimo garantizado
+  var HUD_SAFE = 112;
+  if (LINE_Y - DOLL_H < HUD_SAFE) LINE_Y = HUD_SAFE + DOLL_H;
+  STAND_Y = LINE_Y + 46;
+  START_Y = H - 90;
   GUARD_W = Math.max(24, Math.round(VW * .079));
   GY = LINE_Y - Math.round(GUARD_W * 80 / 45);
   GX_L = DW - Math.round(DOLL_W / 2) + Math.round(VW * .013);
