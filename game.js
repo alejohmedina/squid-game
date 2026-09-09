@@ -1,5 +1,5 @@
 'use strict';
-var GAME_VERSION = 32;
+var GAME_VERSION = 33;
 try {
   if (localStorage.getItem('sqVer') && parseInt(localStorage.getItem('sqVer'), 10) < GAME_VERSION) {
     localStorage.setItem('sqVer', String(GAME_VERSION));
@@ -553,9 +553,7 @@ var specks = [];
 
 function draw(now, dt) {
   dt = dt || 16.7;
-  if (!LANES.length || Math.abs(H - Math.round(VW * ASPECT)) > 2) layoutScene(VW);
-  var wantH = Math.round(cv.width * H / VW);
-  if (Math.abs(cv.height - wantH) > 1) cv.height = wantH;
+  if (!LANES.length) layoutScene(VW, H);
   var k = cv.width / VW;
   ctx.setTransform(k, 0, 0, k, 0, 0);
   if (shakeT > 0) ctx.translate(rnd(-7, 7) * (shakeT / 380), rnd(-5, 5) * (shakeT / 380));
@@ -674,9 +672,9 @@ function drawPlayer(pl, now) {
   }
 }
 
-function layoutScene(vw) {
+function layoutScene(vw, vh) {
   VW = Math.round(vw); DW = Math.round(VW / 2);
-  H = Math.round(VW * ASPECT);
+  H = vh || Math.round(VW * ASPECT);
   LINE_Y = Math.round(H * .42);
   STAND_Y = LINE_Y + 46;
   START_Y = H - 90;
@@ -697,13 +695,15 @@ function layoutScene(vw) {
 }
 function fitCanvas() {
   var r = cv.getBoundingClientRect();
-  if (!r.width) return;
+  if (!r.width || !r.height) return;
   var dpr = Math.min(2, window.devicePixelRatio || 1);
-  var target = Math.round(Math.min(560, Math.max(380, r.width)));
-  if (!LANES.length || Math.abs(target - VW) > 24 || Math.abs(H - Math.round(VW * ASPECT)) > 2) layoutScene(target);
-  cv.width = Math.max(300, Math.round(r.width * dpr));
-  cv.height = Math.round(cv.width * H / VW);
-  cv.style.height = Math.round(r.width * H / VW) + 'px';
+  var displayW = Math.round(r.width);
+  var displayH = Math.round(r.height);
+  if (!LANES.length || Math.abs(displayW - VW) > 10 || Math.abs(displayH - H) > 10) {
+    layoutScene(displayW, displayH);
+  }
+  cv.width = Math.max(300, Math.round(displayW * dpr));
+  cv.height = Math.max(300, Math.round(displayH * dpr));
 }
 window.addEventListener('resize', function() {
   fitCanvas();
