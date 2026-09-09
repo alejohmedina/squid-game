@@ -1,5 +1,5 @@
 'use strict';
-var GAME_VERSION = 33;
+var GAME_VERSION = 34;
 try {
   if (localStorage.getItem('sqVer') && parseInt(localStorage.getItem('sqVer'), 10) < GAME_VERSION) {
     localStorage.setItem('sqVer', String(GAME_VERSION));
