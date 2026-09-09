@@ -1,5 +1,5 @@
 'use strict';
-var GAME_VERSION = 31;
+var GAME_VERSION = 32;
 try {
   if (localStorage.getItem('sqVer') && parseInt(localStorage.getItem('sqVer'), 10) < GAME_VERSION) {
     localStorage.setItem('sqVer', String(GAME_VERSION));
@@ -679,7 +679,7 @@ function layoutScene(vw) {
   H = Math.round(VW * ASPECT);
   LINE_Y = Math.round(H * .42);
   STAND_Y = LINE_Y + 46;
-  START_Y = H - 58;
+  START_Y = H - 90;
   DOLL_W = Math.round(VW * .465);
   DOLL_H = Math.round(DOLL_W * 240 / 252);
   GUARD_W = Math.max(24, Math.round(VW * .079));
