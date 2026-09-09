@@ -694,11 +694,13 @@ function layoutScene(vw, vh) {
   }
 }
 function fitCanvas() {
-  var r = cv.getBoundingClientRect();
-  if (!r.width || !r.height) return;
+  var sr = stage.getBoundingClientRect();
+  if (!sr.width || !sr.height) return;
   var dpr = Math.min(2, window.devicePixelRatio || 1);
-  var displayW = Math.round(r.width);
-  var displayH = Math.round(r.height);
+  var displayW = Math.round(sr.width);
+  var displayH = Math.round(sr.height);
+  cv.style.width = displayW + 'px';
+  cv.style.height = displayH + 'px';
   if (!LANES.length || Math.abs(displayW - VW) > 10 || Math.abs(displayH - H) > 10) {
     layoutScene(displayW, displayH);
   }
