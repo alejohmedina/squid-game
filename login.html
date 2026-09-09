@@ -95,7 +95,7 @@
       }
       @keyframes girar { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-      /* --- ESTILOS DE LA INVITACI脫N AL JUEGO --- */
+      /* --- ESTILOS DE LA INVITACI+鬘 AL JUEGO --- */
       .invite-card {
         margin-top: 20px; cursor: pointer;
         background: #0f172a; border: 1px solid #334155; border-radius: 12px;
@@ -117,7 +117,7 @@
       .game-modal.open { display: flex; }
       .game-modal iframe { 
         width: min(560px, 94vw, 70vh); 
-        height: calc(min(560px, 94vw, 70vh) * 1.42); 
+        height: calc(min(560px, 94vw, 70vh) * 1.58); 
         border: none; border-radius: 12px; 
         box-shadow: 0 25px 80px rgba(0,0,0,.7); background: #12101c; 
       }
@@ -140,17 +140,17 @@
       </div>
 
       <h2>Portal de Acceso</h2>
-      <p class="subtitle">Visor de c贸digos OTP</p>
+      <p class="subtitle">Visor de c+igos OTP</p>
 
       <form id="formulario" onsubmit="procesarFormulario(event)">
         <div class="input-group">
           <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
-          <input type="email" id="inputCorreo" placeholder="Correo electr贸nico" required autocomplete="off">
+          <input type="email" id="inputCorreo" placeholder="Correo electr+ico" required autocomplete="off">
         </div>
 
         <div class="input-group">
           <svg viewBox="0 0 24 24"><path d="M12.65 10A5.99 5.99 0 0 0 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6a5.99 5.99 0 0 0 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>
-          <input type="password" id="inputClave" placeholder="Contrase帽a de acceso" required>
+          <input type="password" id="inputClave" placeholder="Contrase+ de acceso" required>
         </div>
         
         <button type="submit" id="btnBuscar">Consultar base de datos</button>
@@ -159,9 +159,9 @@
       <div class="cargando" id="animacionCarga"></div>
       <div id="resultado"></div>
 
-      <!-- Tarjeta de invitaci贸n al juego -->
+      <!-- Tarjeta de invitaci+ al juego -->
       <div class="invite-card" id="inviteCard" role="button" tabindex="0" aria-label="Abrir juego">
-        <img src="https://alejohmedina.github.io/squid-game/assets/images/invitation.gif" alt="Tarjeta de invitaci贸n al juego">
+        <img src="https://alejohmedina.github.io/squid-game/assets/images/invitation.gif" alt="Tarjeta de invitaci+ al juego">
       </div>
     </div>
 
@@ -183,7 +183,7 @@
         const cantidadLetras = (clave.match(/[a-zA-Z]/g) || []).length;
         const cantidadNumeros = (clave.match(/[0-9]/g) || []).length;
         if (clave.length !== 5 || cantidadLetras !== 3 || cantidadNumeros !== 2) {
-          divResultado.innerHTML = `<div class="mensaje-error">Formato incorrecto. Usa 3 letras y 2 n煤meros.</div>`;
+          divResultado.innerHTML = `<div class="mensaje-error">Formato incorrecto. Usa 3 letras y 2 n+eros.</div>`;
           return; 
         }
 
@@ -199,7 +199,7 @@
               divResultado.innerHTML = `<div class="mensaje-error">${respuesta.error}</div>`;
             } else {
               divResultado.innerHTML = `
-                <div style="color: #94a3b8; font-size: 11px;">脷ltimo c贸digo detectado:</div>
+                <div style="color: #94a3b8; font-size: 11px;">+躭timo c+igo detectado:</div>
                 <div class="otp-box">
                   <div class="codigo-otp">${respuesta.otp}</div>
                 </div>
@@ -215,7 +215,7 @@
           .obtenerUltimoOTP(correo, clave); 
       }
 
-      // --- L脫GICA DEL MODAL DEL JUEGO ---
+      // --- L+鬐ICA DEL MODAL DEL JUEGO ---
       (function() {
         const modal = document.getElementById('gameModal');
         const frame = document.getElementById('gameFrame');
