@@ -1,5 +1,5 @@
 'use strict';
-var GAME_VERSION = 24;
+var GAME_VERSION = 29;
 try {
   if (localStorage.getItem('sqVer') && parseInt(localStorage.getItem('sqVer'), 10) < GAME_VERSION) {
     localStorage.setItem('sqVer', String(GAME_VERSION));
@@ -8,13 +8,70 @@ try {
     localStorage.setItem('sqVer', String(GAME_VERSION));
   }
 } catch (e) {}
-var H = 720;
+var ASPECT = 1.58;
+var H = 822;
 var VW = 520, DW = 260, LANES = [];
-var LINE_Y = 240, STAND_Y = 286, START_Y = 680;
+var LINE_Y = 240, STAND_Y = 286, START_Y = 780;
 var DOLL_W = 242, DOLL_H = 230;
 var GUARD_W = 41, GX_L = 146, GX_R = 340, GY = 167;
 var PLAYER_W = 32;
-var RUN_MS = 19500;
+var RUN_MS = 20500;
+var GAME_TIME = 60000;
+var timerRunning = false;
+var remainingTime = 60000;
+var timedOut = false;
+var level = 1, lastScore = 0, runPoints = 0, runOver = false, pendingScore = 0;
+var board = [];
+// Dificultad por nivel: 1-3 progresivo, 4+ muro casi imposible
+function diff() {
+  var d = { time: 60000, grace: 380, redMin: 900, redMax: 1800, boost: 0, run: 20500 };
+  if (level >= 2) { d.time = 56000; d.grace = 340; d.redMin = 950;  d.redMax = 1900; d.boost = .08; }
+  if (level >= 3) { d.time = 51000; d.grace = 285; d.redMin = 1050; d.redMax = 2100; d.boost = .22; }
+  if (level >= 4) { d.time = 42000; d.grace = 200; d.redMin = 1500; d.redMax = 2800; d.boost = .5;  d.run = 21500; }
+  if (level >= 5) { d.time = 39000; d.grace = 175; d.redMin = 1700; d.redMax = 3100; d.boost = .62; d.run = 22200; }
+  if (level >= 6) { d.time = 36000; d.grace = 155; d.redMin = 1900; d.redMax = 3300; d.boost = .7;  d.run = 22800; }
+  if (level >= 7) { d.time = 34000; d.grace = 140; d.redMin = 2100; d.redMax = 3500; d.boost = .76; d.run = 23400; }
+  if (level >= 8) { d.time = 32000; d.grace = 125; d.redMin = 2300; d.redMax = 3700; d.boost = .8;  d.run = 24000; }
+  return d;
+}
+function levelTime() { return diff().time; }
+function loadBoard() {
+  board = [];
+  try {
+    var b = JSON.parse(localStorage.getItem('sqBoard') || '[]');
+    if (Object.prototype.toString.call(b) === '[object Array]') {
+      for (var i = 0; i < b.length && board.length < 5; i++) {
+        if (b[i] && isFinite(b[i].s) && b[i].s > 0) board.push({ n: String(b[i].n || 'JUGADOR').slice(0, 10), s: Math.round(b[i].s) });
+      }
+      board.sort(function(a, c){ return c.s - a.s; });
+    }
+  } catch (e) { board = []; }
+}
+function saveBoard() {
+  try { localStorage.setItem('sqBoard', JSON.stringify(board.slice(0, 5))); } catch (e) {}
+}
+function qualifies(s) {
+  if (!(s > 0)) return false;
+  if (board.length < 5) return true;
+  return s > board[board.length - 1].s;
+}
+function renderBoard() {
+  var list = $('boardList');
+  if (!list) return;
+  list.innerHTML = '';
+  var medals = ['1', '2', '3', '4', '5'];
+  for (var i = 0; i < board.length; i++) {
+    var li = document.createElement('li');
+    li.textContent = medals[i] + ' · ' + board[i].n + ' — ' + board[i].s + ' pts';
+    list.appendChild(li);
+  }
+  if (!board.length) {
+    var li0 = document.createElement('li');
+    li0.textContent = 'Sin marcas aún. ¡Sé la primera leyenda!';
+    list.appendChild(li0);
+  }
+}
+loadBoard();
 var A = 'assets/', AU = A + 'audio/', IM = A + 'images/';
 
 var SHEETS = {
@@ -183,14 +240,41 @@ function setPhaseUI() {
   } else {
     chip.className = 'chip red'; chip.innerHTML = '&#128308; LUZ ROJA';
   }
-}function updateHud() {
-  var al = $('aliveCount'), cr = $('crossedCount');
-  if (!al || !cr) return;
-  var alive = 0, crossed = 0;
-  players.forEach(function(p){ if (p.crossed) crossed++; else if (p.alive) alive++; });
-  al.textContent = alive;
-  cr.textContent = crossed;
 }
+function fmtTime(ms) {
+  var total = Math.max(0, Math.ceil(ms / 1000));
+  var m = Math.floor(total / 60), s = total % 60;
+  return m + ':' + (s < 10 ? '0' : '') + s;
+}
+function updateHud() {
+  var al = $('aliveCount'), cr = $('crossedCount'), timerEl = $('timeLeft');
+  var alive = 0, crossed = 0, i;
+  for (i = 0; i < players.length; i++) {
+    if (players[i].crossed) crossed++;
+    else if (players[i].alive) alive++;
+  }
+  if (al) al.textContent = String(alive);
+  if (cr) cr.textContent = String(crossed);
+  var lt = $('lvlTag'); if (lt) lt.textContent = 'NIVEL ' + level;
+  var pt = $('ptsTag'); if (pt) pt.textContent = 'PUNTOS ' + runPoints;
+  var urgent = (state === 'playing' && remainingTime <= 10000);
+  if (timerEl) timerEl.textContent = fmtTime(remainingTime);
+  var pill = $('timePill');
+  if (pill && pill.classList) {
+    if (urgent) pill.classList.add('warning');
+    else pill.classList.remove('warning');
+  } else if (timerEl && timerEl.classList) {
+    if (urgent) timerEl.classList.add('warning');
+    else timerEl.classList.remove('warning');
+  }
+  var fill = $('timeFill'), bar = $('timebar');
+  if (fill) fill.style.width = (Math.max(0, remainingTime) / levelTime() * 100).toFixed(1) + '%';
+  if (bar && bar.classList) {
+    if (urgent) bar.classList.add('urgent');
+    else bar.classList.remove('urgent');
+  }
+}
+function updateTimerUI() { updateHud(); }
 
 function pressGo() {
   if (state !== 'playing') return;
@@ -201,11 +285,14 @@ function releaseGo() { moving = false; setMovingUI(); }
 function pickChant() {
   var crossedN = players.filter(function(p){ return p.crossed; }).length;
   var r = Math.random();
-  if (crossedN >= 4) return r < .7 ? 'younghee-chant-fast' : 'younghee-chant-regular';
-  if (crossedN >= 2) return r < .5 ? 'younghee-chant-fast'
-                      : r < .8 ? 'younghee-chant-regular' : 'younghee-chant-slow';
-  return r < .5 ? 'younghee-chant-slow'
-          : r < .9 ? 'younghee-chant-regular' : 'younghee-chant-fast';
+  var pFast, pReg;
+  if (crossedN >= 4) { pFast = .7; pReg = .25; }
+  else if (crossedN >= 2) { pFast = .5; pReg = .3; }
+  else { pFast = .1; pReg = .4; }
+  pFast = Math.min(.88, pFast + diff().boost);
+  if (r < pFast) return 'younghee-chant-fast';
+  if (r < pFast + pReg) return 'younghee-chant-regular';
+  return 'younghee-chant-slow';
 }
 var chantDur = 3600;
 function startChant() {
@@ -233,7 +320,7 @@ function startRedPhase() {
   playSnd('younghee-turn-forward', false, .6);
   setPhaseUI();
 }
-function GRACE_MS() { return 400; }
+function GRACE_MS() { return diff().grace; }
 
 function startWalk(pl) {
   if (pl.walkSndOn) return;
@@ -270,6 +357,8 @@ function resetRound() {
   confetti = []; shakeT = 0;
   pigAnim = null; pigPhase = 0; redAfter = 0;
   linesOn = false; chantName = null; dollState = 'idleFront'; dollAnim = null;
+  timerRunning = false; remainingTime = levelTime(); timedOut = false;
+  update._lastSec = Math.ceil(levelTime() / 1000);
   $('endOverlay').classList.add('hidden');
   setPhaseUI(); updateHud();
 }
@@ -283,6 +372,15 @@ function startGame() {
   var b = $('btnGo');
   if (b) b.disabled = false;
   startGreenPhase(true);
+  timerRunning = true;
+  remainingTime = levelTime();
+  timedOut = false;
+  update._lastSec = Math.ceil(levelTime() / 1000);
+  updateHud();
+}
+function startRun() {
+  level = 1; runPoints = 0; pendingScore = 0; runOver = false;
+  startGame();
 }
 function enterAppMode() {
   var touch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
@@ -300,27 +398,69 @@ function backToStartOverlay() {
   var startO = document.getElementById('startOverlay');
   if (startO) startO.classList.remove('hidden');
 }
-function endGame() {
+function endGame(wasTimeout) {
+  if (state === 'over') return;
+  state = 'over';
+  moving = false; setMovingUI();
+  var b = $('btnGo');
+  if (b) b.disabled = true;
+  players.forEach(stopWalk);
+  if (chantName) { stopSnd(chantName); chantName = null; }
   linesOn = false;
+  timerRunning = false;
   var n = players.filter(function(p){ return p.crossed; }).length;
-  var t = $('endTitle'), m = $('endMsg');
+  var win = (n >= 4);
+  var timeBonus = win ? Math.ceil(Math.max(0, remainingTime) / 1000) * 10 : 0;
+  lastScore = n * 100 + timeBonus + (win ? level * 25 : 0);
+  runPoints += lastScore;
+  var rb = $('retryBtn'), bw = $('boardWrap'), nr = $('nameRow');
+  if (bw) bw.classList.add('hidden');
+  if (win) {
+    if (level < 12) level++;
+    runOver = false;
+    if (rb) rb.textContent = 'Siguiente nivel ▸';
+  } else {
+    level = 1;
+    runOver = true;
+    pendingScore = runPoints;
+    if (rb) rb.textContent = 'Empezar de nuevo';
+  }
+  updateHud();
+  var t = $('endTitle'), m = $('endMsg'), sc = $('endScore');
   if (n === 0) {
-    t.className = 'end-title pink'; t.textContent = 'Eliminados';
-    m.textContent = 'Ning\u00fan jugador cruz\u00f3 la meta.';
+    t.className = 'end-title pink'; t.textContent = wasTimeout ? '¡Tiempo agotado!' : 'Eliminados';
+    m.textContent = wasTimeout ? 'Se acabó el tiempo y ningún jugador cruzó la meta.' : 'Ningún jugador cruzó la meta.';
     playSnd('end-lose', false, .75);
   } else if (n === 6) {
-    t.className = 'end-title gold'; t.textContent = '\u00a1PERFECTO!';
-    m.textContent = 'Los 6 jugadores cruzaron. La hucha se llena.';
+    t.className = 'end-title gold'; t.textContent = '¡PERFECTO!';
+    m.textContent = 'Los 6 jugadores cruzaron. La hucha se llena. ¡Subes al nivel ' + level + '!';
     pigPhase = 1; pigAnim = new Anim('pig-intro', false);
     playSnd('end-pig', false, .85);
     spawnImgConfetti(60);
-  } else {
-    t.className = 'end-title green'; t.textContent = '\u00a1Ronda superada!';
-    m.textContent = n + ' de 6 jugadores cruzaron la meta.';
+  } else if (win) {
+    t.className = 'end-title green'; t.textContent = wasTimeout ? '¡Tiempo agotado!' : '¡Ronda superada!';
+    m.textContent = n + ' de 6 cruzaron la meta. ¡Subes al nivel ' + level + '!';
     spawnImgConfetti(90);
     playSnd('end-confetti', false, .8);
+  } else {
+    t.className = 'end-title pink'; t.textContent = wasTimeout ? '¡Tiempo agotado!' : 'Casi lo logras';
+    m.textContent = 'Solo ' + n + ' de 6 cruzaron. Vuelves al nivel 1.';
+    playSnd('end-lose', false, .75);
   }
-  setTimeout(function(){ $('endOverlay').classList.remove('hidden'); }, n === 6 ? 2600 : 900);
+  if (sc) sc.textContent = '+' + lastScore + ' pts · Total ' + runPoints;
+  if (!win && bw) {
+    renderBoard();
+    bw.classList.remove('hidden');
+    if (nr) {
+      if (qualifies(pendingScore)) {
+        nr.classList.remove('hidden');
+        var ni = $('nameInput');
+        if (ni) ni.value = '';
+        setTimeout(function(){ if (ni && ni.focus) { try { ni.focus(); } catch (e) {} } }, 950);
+      } else nr.classList.add('hidden');
+    }
+  }
+  setTimeout(function(){ $('endOverlay').classList.remove('hidden'); }, n === 6 ? 4300 : 900);
 }
 
 function update(dt) {
@@ -353,6 +493,21 @@ function update(dt) {
 
   if (state !== 'playing') return;
 
+  // Temporizador de 1 minuto - cuenta regresiva
+  if (timerRunning) {
+    remainingTime -= dt;
+    if (remainingTime <= 0) {
+      remainingTime = 0;
+      timerRunning = false;
+      timedOut = true;
+      updateHud();
+      endGame(true);
+      return;
+    }
+    var secNow = Math.ceil(remainingTime / 1000);
+    if (secNow !== update._lastSec) { update._lastSec = secNow; updateHud(); }
+  }
+
   if (phase === 'green') {
     phaseT += dt;
     var turnDone = dollState === 'idleBack';
@@ -361,13 +516,13 @@ function update(dt) {
     phaseT += dt; graceT -= dt;
     var turning = dollState === 'turning-danger';
     if (!turning && moving && !punished && graceT <= 0) punish();
-    if (!turning && dollState !== 'angry' && redAfter <= 0) redAfter = rnd(900, 1800);
+    if (!turning && dollState !== 'angry' && redAfter <= 0) { var dd = diff(); redAfter = rnd(dd.redMin, dd.redMax); }
     if (redAfter > 0) { redAfter -= dt; if (redAfter <= 0) { redAfter = 0; startGreenPhase(false); } }
   }
 
   // DINAMICA ESTRICTA: mientras O este presionado avanzan, en cualquier fase
   if (moving) {
-    var sp = dt / RUN_MS;
+    var sp = dt / diff().run;
     players.forEach(function(p2){
       if (p2.alive && !p2.crossed) {
         p2.p = Math.min(1, p2.p + sp * p2.speed);
@@ -398,7 +553,7 @@ var specks = [];
 
 function draw(now, dt) {
   dt = dt || 16.7;
-  if (!LANES.length || Math.abs(H - VW * 1.42) > 2) layoutScene(VW);
+  if (!LANES.length || Math.abs(H - VW * ASPECT) > 2) layoutScene(VW);
   var wantH = Math.round(cv.width * H / VW);
   if (Math.abs(cv.height - wantH) > 1) cv.height = wantH;
   var k = cv.width / VW;
@@ -493,10 +648,24 @@ function drawPlayer(pl, now) {
     drawFrame(key, frame, Math.round(-PLAYER_W / 2), -Math.round(PLAYER_W * 80 / 37), PLAYER_W);
   }
   ctx.restore();
-  if (!pl.alive && deadK >= 1) {
-    ctx.fillStyle = 'rgba(255,60,100,.95)';
-    ctx.font = 'bold 22px sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText('\u2715', pl.x, y - PLAYER_W * .95);
+  if (!pl.alive && deadK > 0) {
+    var th = (Math.PI / 2) * deadK;
+    var cx = pl.x + PLAYER_W * 1.08 * Math.sin(th);
+    var cy = y - PLAYER_W * 1.08 * Math.cos(th);
+    var r = PLAYER_W * .52;
+    ctx.save();
+    ctx.globalAlpha = deadK;
+    ctx.fillStyle = 'rgba(255,46,99,.22)';
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#ff2e63';
+    ctx.lineWidth = Math.max(3.5, PLAYER_W * .12);
+    ctx.lineCap = 'round';
+    var s = r * .45;
+    ctx.beginPath();
+    ctx.moveTo(cx - s, cy - s); ctx.lineTo(cx + s, cy + s);
+    ctx.moveTo(cx + s, cy - s); ctx.lineTo(cx - s, cy + s);
+    ctx.stroke();
+    ctx.restore();
   }
   if (pl.crossed) {
     ctx.fillStyle = '#2ecc8f';
@@ -507,7 +676,7 @@ function drawPlayer(pl, now) {
 
 function layoutScene(vw) {
   VW = Math.round(vw); DW = Math.round(VW / 2);
-  H = Math.round(VW * 1.42);
+  H = Math.round(VW * ASPECT);
   LINE_Y = Math.round(H * .325);
   STAND_Y = LINE_Y + 46;
   START_Y = H - 58;
@@ -531,7 +700,7 @@ function fitCanvas() {
   if (!r.width) return;
   var dpr = Math.min(2, window.devicePixelRatio || 1);
   var target = Math.round(Math.min(560, Math.max(380, r.width)));
-  if (!LANES.length || Math.abs(target - VW) > 24 || Math.abs(H - Math.round(VW * 1.42)) > 2) layoutScene(target);
+  if (!LANES.length || Math.abs(target - VW) > 24 || Math.abs(H - Math.round(VW * ASPECT)) > 2) layoutScene(target);
   cv.width = Math.max(300, Math.round(r.width * dpr));
   cv.height = Math.round(cv.width * H / VW);
   cv.style.height = Math.round(r.width * H / VW) + 'px';
@@ -567,7 +736,25 @@ document.addEventListener('keydown', function(e) {
 });
 document.addEventListener('keyup', function(e){ if (e.code === 'Space') releaseGo(); });
 document.addEventListener('visibilitychange', function(){ if (document.hidden) releaseGo(); });
-$('retryBtn').addEventListener('click', startGame);
+function onRetry() { if (runOver) startRun(); else startGame(); }
+$('retryBtn').addEventListener('click', onRetry);
+var saveBtn = $('saveScoreBtn');
+if (saveBtn) {
+  saveBtn.addEventListener('click', function() {
+    if (!pendingScore || !qualifies(pendingScore)) return;
+    var inp = $('nameInput');
+    var nm = (inp && inp.value ? inp.value : '').trim().slice(0, 10) || 'JUGADOR';
+    board.push({ n: nm.toUpperCase(), s: Math.round(pendingScore) });
+    board.sort(function(a, b){ return b.s - a.s; });
+    board = board.slice(0, 5);
+    saveBoard();
+    pendingScore = 0;
+    var nr = $('nameRow');
+    if (nr) nr.classList.add('hidden');
+    renderBoard();
+    updateHud();
+  });
+}
 var ICON_ON = '<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.2 8.6a4.8 4.8 0 010 6.8M18.6 6.2a8.2 8.2 0 010 11.6" fill="none" stroke-width="1.8" stroke-linecap="round"/></svg>';
 var ICON_OFF = '<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 9.5l5 5m0-5l-5 5" fill="none" stroke-width="1.8" stroke-linecap="round"/></svg>';
 $('soundBtn').addEventListener('click', function() {
@@ -597,7 +784,7 @@ if (startCard) {
     var startO = document.getElementById('startOverlay');
     if (startO) startO.classList.add('hidden');
     unlockAudio();
-    startGame();
+    if (runOver) startRun(); else startGame();
   }
   startCard.addEventListener('click', startFromCard);
   startCard.addEventListener('keydown', function(e) {

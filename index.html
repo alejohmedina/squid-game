@@ -5,9 +5,28 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Squid Game &#183; Luz Verde, Luz Roja</title>
 <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
-<link rel="stylesheet" href="style.css?v=24">
+<link rel="stylesheet" href="style.css?v=29">
 </head>
 <body>
+
+<div class="hudbar">
+  <div class="hud-meta"><span id="lvlTag">NIVEL 1</span><span class="dot">·</span><span id="ptsTag">PUNTOS 0</span></div>
+  <div class="hud">
+    <div class="hud-item hud-alive">
+      <span class="hud-icon"><svg viewBox="0 0 24 24"><path d="M12 12a4.5 4.5 0 1 0-4.5-4.5A4.5 4.5 0 0 0 12 12zm0 2.2c-3 0-9 1.5-9 4.5V20a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-1.3c0-3-6-4.5-9-4.5z"/></svg></span>
+      <span class="hud-text"><small>Vivos</small><strong id="aliveCount">6</strong></span>
+    </div>
+    <div class="hud-item hud-crossed">
+      <span class="hud-icon"><svg viewBox="0 0 24 24"><path d="M5 3a1 1 0 0 0-1 1v16a1 1 0 0 0 2 0v-6.2h11.6a.5.5 0 0 0 .4-.8L14.7 8.6 18 5.2a.5.5 0 0 0-.4-.8H5z"/></svg></span>
+      <span class="hud-text"><small>Meta</small><strong id="crossedCount">0</strong></span>
+    </div>
+    <div class="hud-item hud-time" id="timePill">
+      <span class="hud-icon"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm4.2 14.2a1 1 0 0 1-1.4 0L11 12.4V7a1 1 0 0 1 2 0v4.6l3.2 3.2a1 1 0 0 1 0 1.4z"/></svg></span>
+      <span class="hud-text"><small>Tiempo</small><strong id="timeLeft">1:00</strong></span>
+    </div>
+  </div>
+  <div class="timebar" id="timebar"><div id="timeFill"></div></div>
+</div>
 
 <div class="stage" id="stage">
   <canvas id="game"></canvas>
@@ -23,10 +42,10 @@
 
   <div id="startOverlay" class="overlay hidden">
     <div class="start-wrap">
-      <div class="invitation" id="startCard" role="button" tabindex="0">
-        <img src="assets/images/invitation.gif" alt="Tarjeta de invitación al juego">
+      <div class="tap-icon" id="startCard" role="button" tabindex="0" aria-label="Empezar a jugar">
+        <svg viewBox="0 0 24 24"><path d="M9 11.24V7.5C9 6.12 10.12 5 11.5 5S14 6.12 14 7.5v3.74c1.21-.81 2-2.18 2-3.74C16 5.01 13.99 3 11.5 3S7 5.01 7 7.5c0 1.56.79 2.93 2 3.74zm9.84 4.63l-4.54-2.26c-.17-.07-.35-.11-.54-.11H13v-6c0-.83-.67-1.5-1.5-1.5S10 6.67 10 7.5v10.74l-3.43-.72c-.08-.01-.15-.03-.24-.03-.31 0-.59.13-.79.33l-.79.8 4.94 4.94c.27.27.65.44 1.06.44h6.79c.75 0 1.33-.55 1.44-1.28l.75-5.27c.01-.07.02-.14.02-.2 0-.62-.38-1.16-.91-1.38z"/></svg>
       </div>
-      <div class="start-hint">Toca para jugar</div>
+      <div class="start-hint">Toque para avanzar</div>
     </div>
   </div>
 
@@ -34,16 +53,23 @@
     <div class="end-box">
       <div id="endTitle" class="end-title"></div>
       <p id="endMsg" class="end-msg"></p>
+      <p id="endScore" class="end-score"></p>
+      <div id="boardWrap" class="board-wrap hidden">
+        <div class="board-title">RANKING · TOP 5</div>
+        <ol id="boardList"></ol>
+        <div id="nameRow" class="name-row hidden">
+          <input id="nameInput" maxlength="10" placeholder="Tu nombre" autocomplete="off">
+          <button id="saveScoreBtn" class="btn btn-gold">Guardar</button>
+        </div>
+      </div>
       <div class="btn-row">
         <button id="retryBtn" class="btn btn-primary">Jugar de nuevo</button>
       </div>
     </div>
   </div>
 
-  <div class="hud">
-  </div>
 </div>
 
-<script src="game.js?v=24"></script>
+<script src="game.js?v=29"></script>
 </body>
 </html>
