@@ -1,5 +1,5 @@
 'use strict';
-var GAME_VERSION = 34;
+var GAME_VERSION = 35;
 try {
   if (localStorage.getItem('sqVer') && parseInt(localStorage.getItem('sqVer'), 10) < GAME_VERSION) {
     localStorage.setItem('sqVer', String(GAME_VERSION));
@@ -8,8 +8,8 @@ try {
     localStorage.setItem('sqVer', String(GAME_VERSION));
   }
 } catch (e) {}
-var ASPECT = 1.58;
-var H = 822;
+var ASPECT = 1.9;
+var H = 988;
 var VW = 520, DW = 260, LANES = [];
 var LINE_Y = 240, STAND_Y = 286, START_Y = 780;
 var DOLL_W = 242, DOLL_H = 230;
@@ -675,10 +675,10 @@ function drawPlayer(pl, now) {
 function layoutScene(vw, vh) {
   VW = Math.round(vw); DW = Math.round(VW / 2);
   H = vh || Math.round(VW * ASPECT);
-  LINE_Y = Math.round(H * .42);
+  LINE_Y = Math.round(H * .34);
   STAND_Y = LINE_Y + 46;
   START_Y = H - 90;
-  DOLL_W = Math.round(VW * .465);
+  DOLL_W = Math.round(VW * .32);
   DOLL_H = Math.round(DOLL_W * 240 / 252);
   GUARD_W = Math.max(24, Math.round(VW * .079));
   GY = LINE_Y - Math.round(GUARD_W * 80 / 45);
