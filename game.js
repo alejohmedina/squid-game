@@ -1,5 +1,5 @@
 'use strict';
-var GAME_VERSION = 37;
+var GAME_VERSION = 38;
 try {
   if (localStorage.getItem('sqVer') && parseInt(localStorage.getItem('sqVer'), 10) < GAME_VERSION) {
     localStorage.setItem('sqVer', String(GAME_VERSION));
@@ -606,7 +606,7 @@ function draw(now, dt) {
     ctx.fillStyle = 'rgba(12,8,20,.82)';
     ctx.fillRect(0, 0, VW, H);
     var key = pigPhase === 1 ? 'pig-intro' : 'pig-sparkle';
-    if (pigAnim) { var pw = Math.min(Math.round(VW * .88), Math.round(H * .6)); pigAnim.step(dt); drawFrame(key, pigAnim.frame, Math.round(DW - pw / 2), Math.round(H * .06), pw); }
+    if (pigAnim) { var pw = Math.min(Math.round(VW * .72), Math.round(H * .42)); pigAnim.step(dt); drawFrame(key, pigAnim.frame, Math.round(DW - pw / 2), Math.round(Math.max(H * .14, 116)), pw); }
   }
 
   if (state === 'playing') {
