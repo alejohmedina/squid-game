@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Squid Game &#183; Luz Verde, Luz Roja</title>
 <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
-<link rel="stylesheet" href="style.css?v=40">
+<link rel="stylesheet" href="style.css?v=41">
 </head>
 <body>
 <h1 class="sr-only">Squid Game · Luz Verde, Luz Roja</h1>
@@ -57,12 +57,13 @@
       <p id="endMsg" class="end-msg"></p>
       <p id="endScore" class="end-score"></p>
       <div id="boardWrap" class="board-wrap hidden">
-        <div class="board-title">RANKING · TOP 5</div>
+        <div class="board-title">RANKING GLOBAL · TOP 5</div>
         <ol id="boardList"></ol>
         <div id="nameRow" class="name-row hidden">
           <input id="nameInput" maxlength="10" placeholder="Tu nombre" aria-label="Tu nombre" autocomplete="nickname">
           <button id="saveScoreBtn" class="btn btn-gold">Guardar</button>
         </div>
+        <p id="boardNote" class="board-note hidden" role="status"></p>
       </div>
       <div class="btn-row">
         <button id="retryBtn" class="btn btn-primary">Jugar de nuevo</button>
@@ -72,5 +73,5 @@
 
 </div>
 
-<script src="game.js?v=40"></script></body>
+<script src="game.js?v=41"></script></body>
 </html>

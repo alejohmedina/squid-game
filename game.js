@@ -1,5 +1,5 @@
 'use strict';
-var GAME_VERSION = 40;
+var GAME_VERSION = 41;
 try {
   if (localStorage.getItem('sqVer') && parseInt(localStorage.getItem('sqVer'), 10) < GAME_VERSION) {
     localStorage.setItem('sqVer', String(GAME_VERSION));
@@ -22,33 +22,67 @@ var remainingTime = 60000;
 var timedOut = false;
 var level = 1, lastScore = 0, runPoints = 0, runOver = false, pendingScore = 0;
 var board = [];
-// Dificultad por nivel: 1-3 progresivo, 4+ muro casi imposible
+// Dificultad por nivel: curva continua del 1 al 12 (tope de niveles).
+// Ajustada con simulación (persona con reacción de ~0,2-0,8 s): gana ~100 % hasta el nivel 6,
+// 75 % en el 8, 38 % en el 10 y 9 % en el 12. La exigencia viene sobre todo del margen para
+// detenerse (grace) y de luces rojas más largas, no de un reloj imposible.
 function diff() {
-  var d = { time: 60000, grace: 380, redMin: 900, redMax: 1800, boost: 0, run: 20500 };
-  if (level >= 2) { d.time = 56000; d.grace = 340; d.redMin = 950;  d.redMax = 1900; d.boost = .08; }
-  if (level >= 3) { d.time = 51000; d.grace = 285; d.redMin = 1050; d.redMax = 2100; d.boost = .22; }
-  if (level >= 4) { d.time = 42000; d.grace = 200; d.redMin = 1500; d.redMax = 2800; d.boost = .5;  d.run = 21500; }
-  if (level >= 5) { d.time = 39000; d.grace = 175; d.redMin = 1700; d.redMax = 3100; d.boost = .62; d.run = 22200; }
-  if (level >= 6) { d.time = 36000; d.grace = 155; d.redMin = 1900; d.redMax = 3300; d.boost = .7;  d.run = 22800; }
-  if (level >= 7) { d.time = 34000; d.grace = 140; d.redMin = 2100; d.redMax = 3500; d.boost = .76; d.run = 23400; }
-  if (level >= 8) { d.time = 32000; d.grace = 125; d.redMin = 2300; d.redMax = 3700; d.boost = .8;  d.run = 24000; }
-  return d;
+  var t = Math.pow((Math.min(level, 12) - 1) / 11, 0.45);
+  return {
+    time:   Math.round(60000 - 17000 * t),
+    run:    Math.round(20500 + 2000 * t),
+    grace:  Math.round(380 - 350 * t),
+    redMin: Math.round(900 + 1000 * t),
+    redMax: Math.round(1800 + 1500 * t),
+    boost:  0.75 * t
+  };
 }
 function levelTime() { return diff().time; }
+// Ranking compartido: vive en la hoja 'Ranking' del Sheet del portal, vía Apps Script.
+// localStorage solo guarda una copia para mostrar algo si no hay conexión.
+var RANKING_URL = 'https://script.google.com/macros/s/AKfycbzzBDnBXdaBrBKr4CeZ-3kknpk7nwJ8vsa-gH6KPrg2w2LYr8tnXnQ1Oc3kKdX07XdyeA/exec';
+var BOARD_CACHE = 'sqBoardGlobal';
+function cleanBoard(b) {
+  var out = [];
+  if (Object.prototype.toString.call(b) !== '[object Array]') return out;
+  for (var i = 0; i < b.length && out.length < 5; i++) {
+    if (b[i] && isFinite(b[i].s) && b[i].s > 0) out.push({ n: String(b[i].n || 'JUGADOR').slice(0, 10), s: Math.round(b[i].s) });
+  }
+  return out.sort(function(a, c){ return c.s - a.s; });
+}
 function loadBoard() {
-  board = [];
-  try {
-    var b = JSON.parse(localStorage.getItem('sqBoard') || '[]');
-    if (Object.prototype.toString.call(b) === '[object Array]') {
-      for (var i = 0; i < b.length && board.length < 5; i++) {
-        if (b[i] && isFinite(b[i].s) && b[i].s > 0) board.push({ n: String(b[i].n || 'JUGADOR').slice(0, 10), s: Math.round(b[i].s) });
-      }
-      board.sort(function(a, c){ return c.s - a.s; });
-    }
-  } catch (e) { board = []; }
+  try { board = cleanBoard(JSON.parse(localStorage.getItem(BOARD_CACHE) || '[]')); } catch (e) { board = []; }
+  fetchBoard();
 }
 function saveBoard() {
-  try { localStorage.setItem('sqBoard', JSON.stringify(board.slice(0, 5))); } catch (e) {}
+  try { localStorage.setItem(BOARD_CACHE, JSON.stringify(board.slice(0, 5))); } catch (e) {}
+}
+function setBoardNote(msg) {
+  var el = $('boardNote');
+  if (!el) return;
+  el.textContent = msg || '';
+  el.classList.toggle('hidden', !msg);
+}
+function useServerBoard(d) {
+  if (!d || !d.board) return false;
+  board = cleanBoard(d.board);
+  saveBoard();
+  renderBoard();
+  return true;
+}
+function fetchBoard() {
+  if (!window.fetch) return;
+  fetch(RANKING_URL + '?ranking=1').then(function(r){ return r.json(); })
+    .then(useServerBoard).catch(function(){});
+}
+function postScore(name, score, done) {
+  if (!window.fetch) { done(false); return; }
+  // text/plain evita la consulta previa de CORS, que Apps Script no responde.
+  fetch(RANKING_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ n: name, s: score }) })
+    .then(function(r){ return r.json(); })
+    .then(function(d){ done(useServerBoard(d), d && d.error); })
+    .catch(function(){ done(false); });
 }
 function qualifies(s) {
   if (!(s > 0)) return false;
@@ -71,7 +105,6 @@ function renderBoard() {
     list.appendChild(li0);
   }
 }
-loadBoard();
 var A = 'assets/', AU = A + 'audio/', IM = A + 'images/';
 
 var SHEETS = {
@@ -523,6 +556,8 @@ function endGame(wasTimeout) {
   if (sc) sc.textContent = '+' + lastScore + ' pts · Total ' + runPoints;
   if (!win && bw) {
     renderBoard();
+    setBoardNote('');
+    fetchBoard();
     bw.classList.remove('hidden');
     if (nr) {
       if (qualifies(pendingScore)) {
@@ -845,15 +880,23 @@ if (saveBtn) {
     if (!pendingScore || !qualifies(pendingScore)) return;
     var inp = $('nameInput');
     var nm = (inp && inp.value ? inp.value : '').trim().slice(0, 10) || 'JUGADOR';
-    board.push({ n: nm.toUpperCase(), s: Math.round(pendingScore) });
-    board.sort(function(a, b){ return b.s - a.s; });
-    board = board.slice(0, 5);
-    saveBoard();
+    var score = Math.round(pendingScore);
     pendingScore = 0;
-    var nr = $('nameRow');
-    if (nr) nr.classList.add('hidden');
-    renderBoard();
-    updateHud();
+    saveBtn.disabled = true;
+    setBoardNote('Guardando…');
+    postScore(nm, score, function(ok, error) {
+      saveBtn.disabled = false;
+      var nr = $('nameRow');
+      if (ok) {
+        if (nr) nr.classList.add('hidden');
+        setBoardNote('');
+        announce('Puntaje guardado en el ranking');
+      } else {
+        pendingScore = score;
+        setBoardNote(error || 'No se pudo guardar. Revisa tu conexión e inténtalo de nuevo.');
+      }
+      updateHud();
+    });
   });
 }
 var ICON_ON = '<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.2 8.6a4.8 4.8 0 010 6.8M18.6 6.2a8.2 8.2 0 010 11.6" fill="none" stroke-width="1.8" stroke-linecap="round"/></svg>';
@@ -868,6 +911,7 @@ $('soundBtn').addEventListener('click', function() {
   if (muted) stopAllLooping();
 });
 
+loadBoard();
 initPlayers();
 fitCanvas();
 setPhaseUI();
