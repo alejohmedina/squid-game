@@ -1,5 +1,5 @@
 'use strict';
-var GAME_VERSION = 38;
+var GAME_VERSION = 40;
 try {
   if (localStorage.getItem('sqVer') && parseInt(localStorage.getItem('sqVer'), 10) < GAME_VERSION) {
     localStorage.setItem('sqVer', String(GAME_VERSION));
@@ -102,20 +102,63 @@ var SOUNDS = ['player-1-walking','player-2-walking','player-3-walking','player-4
 var imgs = {}, snds = {};
 var assetsReady = false;
 
+var COLORS = {
+  sky0: '#9fd7ec', sky1: '#e3f4fb',
+  field0: '#e6cda1', field1: '#caa87b',
+  speck: 'rgba(110,80,45,.15)',
+  line: '#f6f1e7', dash: '#403a5e',
+  dashStroke: 'rgba(255,255,255,.4)',
+  redFlash: 'rgba(255,46,99,',
+  shadow: 'rgba(0,0,0,.28)',
+  fbBody: '#14967f', fbHead: '#17171a',
+  cross: '#2ecc8f',
+  ring: 'rgba(255,46,99,.22)', xStroke: '#ff2e63',
+  veil: 'rgba(12,8,20,.82)'
+};
+
+function announce(msg) {
+  var el = $('eventLive');
+  if (el) el.textContent = msg;
+}
+
+var LAZY_SHEETS = { 'pig-intro': 1, 'pig-sparkle': 1 };
+var lazySheetsReady = false, lazySheetsLoading = false;
+function loadLazySheets() {
+  if (lazySheetsReady || lazySheetsLoading) return;
+  lazySheetsLoading = true;
+  var keys = Object.keys(LAZY_SHEETS);
+  var loaded = 0;
+  keys.forEach(function(k) {
+    var im = new Image();
+    im.decoding = 'async';
+    im.onload = im.onerror = function() {
+      loaded++;
+      if (loaded >= keys.length) lazySheetsReady = true;
+    };
+    im.src = IM + SHEETS[k].f;
+    imgs[k] = im;
+  });
+}
+
 function loadAssets(done) {
-  var total = Object.keys(SHEETS).length + SOUNDS.length + CONFETTI_FILES.length;
+  var total = Object.keys(SHEETS).length - Object.keys(LAZY_SHEETS).length + SOUNDS.length;
   var loaded = 0;
   function tickOne() {
     loaded++;
     var pct = Math.round(loaded / total * 100);
     var fill = document.getElementById('loadFill');
     var pctEl = document.getElementById('loadPct');
-    if (fill) fill.style.width = pct + '%';
+    if (fill) {
+      fill.style.transform = 'scaleX(' + (pct / 100) + ')';
+      fill.setAttribute('aria-valuenow', String(pct));
+    }
     if (pctEl) pctEl.textContent = pct + '%';
     if (loaded >= total) { assetsReady = true; if (done) done(); }
   }
   Object.keys(SHEETS).forEach(function(k) {
+    if (LAZY_SHEETS[k]) return;
     var im = new Image();
+    im.decoding = 'async';
     im.onload = tickOne; im.onerror = tickOne;
     im.src = IM + SHEETS[k].f;
     imgs[k] = im;
@@ -130,6 +173,22 @@ function loadAssets(done) {
   CONFETTI_FILES.forEach(function(f) {
     var im = new Image();
     im.onload = tickOne; im.onerror = tickOne;
+    im.src = IM + f;
+    imgs['cf_' + f] = im;
+  });
+}
+var confettiReady = false, confettiLoading = false;
+function loadConfetti() {
+  if (confettiReady || confettiLoading) return;
+  confettiLoading = true;
+  var loaded = 0;
+  CONFETTI_FILES.forEach(function(f) {
+    var im = new Image();
+    im.decoding = 'async';
+    im.onload = im.onerror = function() {
+      loaded++;
+      if (loaded >= CONFETTI_FILES.length) confettiReady = true;
+    };
     im.src = IM + f;
     imgs['cf_' + f] = im;
   });
@@ -208,11 +267,15 @@ var stage = $('stage');
 
 var state = 'card';
 var players = [], phase = 'green', phaseT = 0, phaseDur = 3000;
-var graceT = 0, punished = false, moving = false, walkPhase = 0;
+var graceT = 0, killT = 0, moving = false, walkPhase = 0;
 var shakeT = 0, lastT = 0, loadTick = 0;
 var dollAnim = null, dollState = 'idleFront', linesOn = false, chantName = null;
 var pigAnim = null, pigPhase = 0;
 var confetti = [], redAfter = 0;
+// Mientras sigan moviéndose en luz roja, la muñeca elimina a otro jugador cada KILL_MS.
+var KILL_MS = 600;
+// Al acabarse el tiempo, los que no cruzaron caen uno tras otro con este desfase.
+var TIMEOUT_FALL_MS = 110;
 
 function rnd(a, b) { return a + Math.random() * (b - a); }
 
@@ -224,22 +287,14 @@ function initPlayers() {
       alive: true, crossed: false, deadT: 0, anim: null, walkSndOn: false, speed: base[i] });
   }
 }
-function setMovingUI() {
-  var b = $('btnGo');
-  if (b) b.classList.toggle('active', moving);
-}
 function setPhaseUI() {
-  var chip = $('phaseChip');
-  if (!chip) return;
+  var live = $('phaseLive');
+  if (!live) return;
   if (state !== 'playing') {
-    chip.className = 'chip'; chip.innerHTML = '&#9209; En espera';
+    live.textContent = 'En espera';
     return;
   }
-  if (phase === 'green') {
-    chip.className = 'chip green'; chip.innerHTML = '&#128994; LUZ VERDE';
-  } else {
-    chip.className = 'chip red'; chip.innerHTML = '&#128308; LUZ ROJA';
-  }
+  live.textContent = phase === 'green' ? 'Luz verde: puedes avanzar' : 'Luz roja: no te muevas';
 }
 function fmtTime(ms) {
   var total = Math.max(0, Math.ceil(ms / 1000));
@@ -268,7 +323,11 @@ function updateHud() {
     else timerEl.classList.remove('warning');
   }
   var fill = $('timeFill'), bar = $('timebar');
-  if (fill) fill.style.width = (Math.max(0, remainingTime) / levelTime() * 100).toFixed(1) + '%';
+  if (fill) {
+    var frac = Math.max(0, remainingTime) / levelTime();
+    fill.style.transform = 'scaleX(' + frac.toFixed(3) + ')';
+    fill.setAttribute('aria-valuenow', String(Math.max(0, Math.ceil(remainingTime / 1000))));
+  }
   if (bar && bar.classList) {
     if (urgent) bar.classList.add('urgent');
     else bar.classList.remove('urgent');
@@ -278,9 +337,9 @@ function updateTimerUI() { updateHud(); }
 
 function pressGo() {
   if (state !== 'playing') return;
-  moving = true; setMovingUI();
+  moving = true;
 }
-function releaseGo() { moving = false; setMovingUI(); }
+function releaseGo() { moving = false; }
 
 function pickChant() {
   var crossedN = players.filter(function(p){ return p.crossed; }).length;
@@ -304,7 +363,7 @@ function startChant() {
 function startGreenPhase(first) {
   phase = 'green'; phaseT = 0;
   phaseDur = first ? rnd(2000, 3200) : rnd(1800, 3800);
-  punished = false;
+  killT = 0;
   dollState = 'turning-away';
   dollAnim = new Anim('yh-back', false);
   stopSnd('younghee-turn-forward');
@@ -335,12 +394,26 @@ function stopWalk(pl) {
 function punish() {
   var pool = players.filter(function(p){ return p.alive && !p.crossed; });
   if (!pool.length) return;
-  pool.sort(function(a, b){ return b.p - a.p; });
-  pool[0].alive = false; pool[0].deadT = 0; stopWalk(pool[0]);
-  punished = true; shakeT = 380;
+  // Como en la serie: cae cualquiera de los que se mueven, no siempre el que va primero.
+  var victim = pool[(Math.random() * pool.length) | 0];
+  victim.alive = false; victim.deadT = 0; stopWalk(victim);
+  killT = KILL_MS; shakeT = 380;
   dollState = 'angry'; dollAnim = new Anim('yh-angry', false);
   playSnd('player-caught', false, .7);
+  announce('Jugador eliminado en luz roja');
   updateHud();
+}
+// Como en la serie: quien no cruzó a tiempo queda eliminado.
+function eliminateRemaining() {
+  var pool = players.filter(function(p){ return p.alive && !p.crossed; });
+  if (!pool.length) return;
+  pool.forEach(function(p, i){
+    p.alive = false; p.deadT = -i * TIMEOUT_FALL_MS; stopWalk(p); p.anim = null;
+  });
+  shakeT = 380;
+  dollState = 'angry'; dollAnim = new Anim('yh-angry', false);
+  playSnd('player-caught', false, .7);
+  announce('Tiempo agotado: los jugadores que no cruzaron fueron eliminados');
 }
 function spawnImgConfetti(n) {
   for (var i = 0; i < n; i++) {
@@ -353,7 +426,7 @@ function spawnImgConfetti(n) {
 function resetRound() {
   initPlayers();
   phase = 'green'; phaseT = 0; phaseDur = 0;
-  graceT = 0; punished = false; moving = false; setMovingUI();
+  graceT = 0; killT = 0; moving = false;
   confetti = []; shakeT = 0;
   pigAnim = null; pigPhase = 0; redAfter = 0;
   linesOn = false; chantName = null; dollState = 'idleFront'; dollAnim = null;
@@ -368,9 +441,10 @@ function startGame() {
   resetRound();
   state = 'playing';
   setPhaseUI();
+  loadConfetti();
+  loadLazySheets();
   requestAnimationFrame(fitCanvas);
-  var b = $('btnGo');
-  if (b) b.disabled = false;
+  ensureLoop();
   startGreenPhase(true);
   timerRunning = true;
   remainingTime = levelTime();
@@ -397,13 +471,12 @@ function backToStartOverlay() {
   resetRound();
   var startO = document.getElementById('startOverlay');
   if (startO) startO.classList.remove('hidden');
+  draw(performance.now(), 16.7);
 }
 function endGame(wasTimeout) {
   if (state === 'over') return;
   state = 'over';
-  moving = false; setMovingUI();
-  var b = $('btnGo');
-  if (b) b.disabled = true;
+  moving = false;
   players.forEach(stopWalk);
   if (chantName) { stopSnd(chantName); chantName = null; }
   linesOn = false;
@@ -460,7 +533,11 @@ function endGame(wasTimeout) {
       } else nr.classList.add('hidden');
     }
   }
-  setTimeout(function(){ $('endOverlay').classList.remove('hidden'); }, n === 6 ? 4300 : 900);
+  setTimeout(function(){
+    $('endOverlay').classList.remove('hidden');
+    var rb2 = $('retryBtn');
+    if (rb2 && rb2.focus) { try { rb2.focus(); } catch (e) {} }
+  }, n === 6 ? 4300 : 900);
 }
 
 function update(dt) {
@@ -500,6 +577,7 @@ function update(dt) {
       remainingTime = 0;
       timerRunning = false;
       timedOut = true;
+      eliminateRemaining();
       updateHud();
       endGame(true);
       return;
@@ -514,10 +592,13 @@ function update(dt) {
     if (phaseT >= phaseDur && turnDone) startRedPhase();
   } else {
     phaseT += dt; graceT -= dt;
+    killT = Math.max(0, killT - dt);
     var turning = dollState === 'turning-danger';
-    if (!turning && moving && !punished && graceT <= 0) punish();
+    if (!turning && moving && killT <= 0 && graceT <= 0) punish();
     if (!turning && dollState !== 'angry' && redAfter <= 0) { var dd = diff(); redAfter = rnd(dd.redMin, dd.redMax); }
-    if (redAfter > 0) { redAfter -= dt; if (redAfter <= 0) { redAfter = 0; startGreenPhase(false); } }
+    // La muñeca no se da la vuelta mientras alguien siga moviéndose: sigue eliminando hasta que se detengan.
+    var caught = !turning && moving && graceT <= 0;
+    if (redAfter > 0 && !caught) { redAfter -= dt; if (redAfter <= 0) { redAfter = 0; startGreenPhase(false); } }
   }
 
   // DINAMICA ESTRICTA: mientras O este presionado avanzan, en cualquier fase
@@ -542,6 +623,7 @@ function update(dt) {
     if (!pl.crossed && pl.alive && pl.p >= 1) {
       pl.crossed = true; pl.p = 1; stopWalk(pl); pl.anim = null;
       playSnd('player-crosses', false, .6);
+      announce('Jugador ' + (pl.idx + 1) + ' cruzó la meta');
       updateHud();
     }
   }
@@ -551,6 +633,7 @@ function update(dt) {
 function runnerY(p) { return START_Y - p * (START_Y - STAND_Y); }
 var specks = [];
 
+var skyGrad = null, fieldGrad = null;
 function draw(now, dt) {
   dt = dt || 16.7;
   if (!LANES.length) layoutScene(VW, H);
@@ -558,21 +641,25 @@ function draw(now, dt) {
   ctx.setTransform(k, 0, 0, k, 0, 0);
   if (shakeT > 0) ctx.translate(rnd(-7, 7) * (shakeT / 380), rnd(-5, 5) * (shakeT / 380));
 
-  var sky = ctx.createLinearGradient(0, 0, 0, LINE_Y + 10);
-  sky.addColorStop(0, '#9fd7ec'); sky.addColorStop(1, '#e3f4fb');
-  ctx.fillStyle = sky; ctx.fillRect(0, 0, VW, LINE_Y + 10);
+  if (!skyGrad) {
+    skyGrad = ctx.createLinearGradient(0, 0, 0, LINE_Y + 10);
+    skyGrad.addColorStop(0, COLORS.sky0); skyGrad.addColorStop(1, COLORS.sky1);
+  }
+  ctx.fillStyle = skyGrad; ctx.fillRect(0, 0, VW, LINE_Y + 10);
 
-  var field = ctx.createLinearGradient(0, LINE_Y, 0, H);
-  field.addColorStop(0, '#e6cda1'); field.addColorStop(1, '#caa87b');
-  ctx.fillStyle = field; ctx.fillRect(0, LINE_Y + 10, VW, H - LINE_Y);
-  ctx.fillStyle = 'rgba(110,80,45,.15)';
+  if (!fieldGrad) {
+    fieldGrad = ctx.createLinearGradient(0, LINE_Y, 0, H);
+    fieldGrad.addColorStop(0, COLORS.field0); fieldGrad.addColorStop(1, COLORS.field1);
+  }
+  ctx.fillStyle = fieldGrad; ctx.fillRect(0, LINE_Y + 10, VW, H - LINE_Y);
+  ctx.fillStyle = COLORS.speck;
   for (var i = 0; i < specks.length; i++) ctx.fillRect(specks[i].x, specks[i].y, 2.2, 2.2);
 
-  ctx.fillStyle = '#f6f1e7'; ctx.fillRect(0, LINE_Y, VW, 8);
-  ctx.fillStyle = '#403a5e';
+  ctx.fillStyle = COLORS.line; ctx.fillRect(0, LINE_Y, VW, 8);
+  ctx.fillStyle = COLORS.dash;
   for (var dx = 14; dx < VW; dx += 46) ctx.fillRect(dx, LINE_Y + 3.2, 22, 2.6);
 
-  ctx.strokeStyle = 'rgba(255,255,255,.4)'; ctx.lineWidth = 2;
+  ctx.strokeStyle = COLORS.dashStroke; ctx.lineWidth = 2;
   ctx.setLineDash([10, 12]);
   ctx.beginPath(); ctx.moveTo(14, START_Y + 8); ctx.lineTo(VW - 14, START_Y + 8); ctx.stroke();
   ctx.setLineDash([]);
@@ -603,7 +690,7 @@ function draw(now, dt) {
   }
 
   if (pigPhase > 0) {
-    ctx.fillStyle = 'rgba(12,8,20,.82)';
+    ctx.fillStyle = COLORS.veil;
     ctx.fillRect(0, 0, VW, H);
     var key = pigPhase === 1 ? 'pig-intro' : 'pig-sparkle';
     if (pigAnim) { var pw = Math.min(Math.round(VW * .72), Math.round(H * .42)); pigAnim.step(dt); drawFrame(key, pigAnim.frame, Math.round(DW - pw / 2), Math.round(Math.max(H * .14, 116)), pw); }
@@ -612,7 +699,7 @@ function draw(now, dt) {
   if (state === 'playing') {
     if (phase === 'red') {
       var a = .14 + .1 * Math.sin(now / 90);
-      ctx.strokeStyle = 'rgba(255,46,99,' + a.toFixed(3) + ')';
+      ctx.strokeStyle = COLORS.redFlash + a.toFixed(3) + ')';
       ctx.lineWidth = 24; ctx.strokeRect(0, 0, VW, H);
     }
   }
@@ -624,12 +711,12 @@ function drawPlayer(pl, now) {
   if (!isFinite(pl.x)) pl.x = LANES[pl.idx] || DW;
   var y = runnerY(pl.p);
   if (!isFinite(y) || y < -90 || y > H + 90) y = START_Y;
-  var deadK = pl.alive ? 0 : Math.min(1, pl.deadT / 320);
+  var deadK = pl.alive ? 0 : Math.max(0, Math.min(1, pl.deadT / 320));
   ctx.save();
   ctx.translate(pl.x, y);
-  if (!pl.alive) { ctx.rotate((Math.PI / 2) * deadK); ctx.globalAlpha = 1 - deadK * .55; }
+  if (deadK > 0) { ctx.rotate((Math.PI / 2) * deadK); ctx.globalAlpha = 1 - deadK * .55; }
   else {
-    ctx.fillStyle = 'rgba(0,0,0,.28)';
+    ctx.fillStyle = COLORS.shadow;
     ctx.beginPath(); ctx.ellipse(0, 2, PLAYER_W * .42, PLAYER_W * .11, 0, 0, Math.PI * 2); ctx.fill();
   }
   var key;
@@ -638,9 +725,9 @@ function drawPlayer(pl, now) {
   var frame = (!pl.alive || !pl.anim) ? 0 : pl.anim.frame;
   var im = imgs[key];
   if (!im || !im.complete || !im.naturalWidth) {
-    ctx.fillStyle = '#14967f';
+    ctx.fillStyle = COLORS.fbBody;
     roundRect(-PLAYER_W * .31, -PLAYER_W * 1.95, PLAYER_W * .62, PLAYER_W * 1.84, PLAYER_W * .2); ctx.fill();
-    ctx.fillStyle = '#17171a';
+    ctx.fillStyle = COLORS.fbHead;
     ctx.beginPath(); ctx.arc(0, -PLAYER_W * 2.12, PLAYER_W * .26, 0, Math.PI * 2); ctx.fill();
   } else {
     drawFrame(key, frame, Math.round(-PLAYER_W / 2), -Math.round(PLAYER_W * 80 / 37), PLAYER_W);
@@ -653,9 +740,9 @@ function drawPlayer(pl, now) {
     var r = PLAYER_W * .52;
     ctx.save();
     ctx.globalAlpha = deadK;
-    ctx.fillStyle = 'rgba(255,46,99,.22)';
+    ctx.fillStyle = COLORS.ring;
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = '#ff2e63';
+    ctx.strokeStyle = COLORS.xStroke;
     ctx.lineWidth = Math.max(3.5, PLAYER_W * .12);
     ctx.lineCap = 'round';
     var s = r * .45;
@@ -666,9 +753,9 @@ function drawPlayer(pl, now) {
     ctx.restore();
   }
   if (pl.crossed) {
-    ctx.fillStyle = '#2ecc8f';
+    ctx.fillStyle = COLORS.cross;
     ctx.font = 'bold 18px sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText('\u2713', pl.x, y - PLAYER_W * 2.4);
+    ctx.fillText('✓', pl.x, y - PLAYER_W * 2.4);
   }
 }
 
@@ -689,6 +776,7 @@ function layoutScene(vw, vh) {
   GX_R = DW + Math.round(DOLL_W / 2) - GUARD_W - Math.round(VW * .013);
   PLAYER_W = Math.max(18, Math.round(VW * .0615));
   LANES = [];
+  skyGrad = null; fieldGrad = null;
   var m = Math.max(84, Math.round(VW * .17));
   for (var i = 0; i < 6; i++) LANES.push(Math.round(m + (VW - m * 2) * (i / 5)));
   specks.length = 0;
@@ -713,6 +801,7 @@ function fitCanvas() {
 window.addEventListener('resize', function() {
   fitCanvas();
   players.forEach(function(p){ p.x = LANES[p.idx]; });
+  if (state === 'card') draw(performance.now(), 16.7);
 });
 if (window.ResizeObserver) {
   new ResizeObserver(function() {
@@ -722,6 +811,12 @@ if (window.ResizeObserver) {
 }
 setTimeout(fitCanvas, 350);
 
+var loopRunning = false;
+function ensureLoop() {
+  if (loopRunning || state === 'card') return;
+  loopRunning = true;
+  requestAnimationFrame(function(t) { lastT = t; requestAnimationFrame(loop); });
+}
 function loop(t) {
   var dt = Math.min(50, t - lastT); lastT = t;
   try {
@@ -731,6 +826,7 @@ function loop(t) {
     loop._errCount = (loop._errCount || 0) + 1;
     if (loop._errCount <= 5) console.error('loop error #' + loop._errCount + ':', err);
   }
+  if (state === 'card') { loopRunning = false; return; }
   requestAnimationFrame(loop);
 }
 
@@ -766,7 +862,9 @@ $('soundBtn').addEventListener('click', function() {
   unlockAudio();
   muted = !muted;
   this.innerHTML = muted ? ICON_OFF : ICON_ON;
-  this.title = muted ? 'Activar sonido' : 'Silenciar';
+  this.title = muted ? 'Activar sonido' : 'Silenciar sonido';
+  this.setAttribute('aria-pressed', muted ? 'true' : 'false');
+  this.setAttribute('aria-label', muted ? 'Activar sonido' : 'Silenciar sonido');
   if (muted) stopAllLooping();
 });
 
@@ -774,13 +872,14 @@ initPlayers();
 fitCanvas();
 setPhaseUI();
 updateHud();
+draw(0, 16.7);
 loadAssets(function(){
   var loadO = document.getElementById('loadOverlay');
   var startO = document.getElementById('startOverlay');
   if (loadO) loadO.classList.add('hidden');
   if (startO) startO.classList.remove('hidden');
+  draw(performance.now(), 16.7);
 });
-requestAnimationFrame(function(t) { lastT = t; requestAnimationFrame(loop); });
 
 // Start card handlers
 var startCard = document.getElementById('startCard');
